@@ -19,7 +19,6 @@ logs/
 wandb/
 
 # Data
-data/
 *.mp4
 *.png
 *.jpg
