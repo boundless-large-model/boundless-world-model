@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wan-video-action"
+version = "0.1.0"
+description = "Action-conditioned WAN video generation using DiffSynth-Studio"
+authors = [{name = "Your Name"}]
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+dependencies = [
+    # DiffSynth-Studio provides all base dependencies (torch, einops, etc.)
+    "diffsynth>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
