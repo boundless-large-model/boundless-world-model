@@ -251,5 +251,195 @@ class ToVideoTensor(DataProcessingOperator):
         video = self._frames_to_video_tensor(data).unsqueeze(0)  # (1, C, T, H, W)
         return video
     
+# TODO: change "OBS_ACTION_NAMES" to "JOINT_AND_EEF_NAMES" 
+JOINT_AND_EEF_NAMES = [
+    "left_arm_joint_1_rad",
+    "left_arm_joint_2_rad",
+    "left_arm_joint_3_rad",
+    "left_arm_joint_4_rad",
+    "left_arm_joint_5_rad",
+    "left_arm_joint_6_rad",
+    "left_gripper_open",
+    "left_eef_pos_x_m",
+    "left_eef_pos_y_m",
+    "left_eef_pos_z_m",
+    "left_eef_rot_euler_x_rad",
+    "left_eef_rot_euler_y_rad",
+    "left_eef_rot_euler_z_rad",
+    "right_arm_joint_1_rad",
+    "right_arm_joint_2_rad",
+    "right_arm_joint_3_rad",
+    "right_arm_joint_4_rad",
+    "right_arm_joint_5_rad",
+    "right_arm_joint_6_rad",
+    "right_gripper_open",
+    "right_eef_pos_x_m",
+    "right_eef_pos_y_m",
+    "right_eef_pos_z_m",
+    "right_eef_rot_euler_x_rad",
+    "right_eef_rot_euler_y_rad",
+    "right_eef_rot_euler_z_rad",
+]
+
+JOINT_NAMES = [
+    "left_arm_joint_1_rad",
+    "left_arm_joint_2_rad",
+    "left_arm_joint_3_rad",
+    "left_arm_joint_4_rad",
+    "left_arm_joint_5_rad",
+    "left_arm_joint_6_rad",
+    "left_gripper_open",
+    "right_arm_joint_1_rad",
+    "right_arm_joint_2_rad",
+    "right_arm_joint_3_rad",
+    "right_arm_joint_4_rad",
+    "right_arm_joint_5_rad",
+    "right_arm_joint_6_rad",
+    "right_gripper_open",
+]
+
+# TODO: change "POSE_NAMES" to "EEF_NAMES"
+EEF_NAMES = [
+    "left_eef_pos_x_m",
+    "left_eef_pos_y_m",
+    "left_eef_pos_z_m",
+    "left_eef_rot_euler_x_rad",
+    "left_eef_rot_euler_y_rad",
+    "left_eef_rot_euler_z_rad",
+    "left_gripper_open",
+    "right_eef_pos_x_m",
+    "right_eef_pos_y_m",
+    "right_eef_pos_z_m",
+    "right_eef_rot_euler_x_rad",
+    "right_eef_rot_euler_y_rad",
+    "right_eef_rot_euler_z_rad",
+    "right_gripper_open",
+]
+
+
+class LoadCobotAction(DataProcessingOperator):
+    def __init__(
+        self,
+        base_path="",
+        action_type="joint_abs",
+        stat=None,
+        use_percentile_stats=True,
+        num_frames=81,
+        time_division_factor=4,
+        time_division_remainder=1,
+    ):
+        self.num_frames = num_frames
+        self.time_division_factor = time_division_factor
+        self.time_division_remainder = time_division_remainder
+        """
+            joint_abs (原 state_joint：关节绝对位置)
+            eef_abs (原 state_pose：末端绝对位姿)
+            joint_delta (原 action_joint：关节相对动作/增量)
+            eef_delta (原 action_pose：末端相对动作/增量)
+        """
+        if action_type not in ("joint_abs", "eef_abs", "joint_delta", "eef_delta"):
+            raise ValueError(f"Unsupported action type: {action_type}")
+        self.base_path = base_path
+        self.action_type = action_type
+        self.stat = stat or {}
+        self.use_percentile_stats = use_percentile_stats
+        # TODO: rename "use_state" to "use_absolute"
+        self.use_absolute = action_type.endswith("_abs")
+        self.use_joint = action_type.startswith("joint_")
+        name_to_idx = {name: idx for idx, name in enumerate(JOINT_AND_EEF_NAMES)}
+        self.indices = [name_to_idx[name] for name in (JOINT_NAMES if self.use_joint else EEF_NAMES)]
+        self._stat_min = None
+        self._stat_max = None
+        if self.stat and action_type in self.stat:
+            entry = self.stat[action_type]
+            if self.use_percentile_stats:
+                # Filter out abnormal sensor spikes 
+                self._stat_min = np.asarray(entry.get("p01", []), dtype=np.float32)
+                self._stat_max = np.asarray(entry.get("p99", []), dtype=np.float32)
+            else:
+                self._stat_min = np.asarray(entry.get("min", []), dtype=np.float32)
+                self._stat_max = np.asarray(entry.get("max", []), dtype=np.float32)
+
+    def _resolve_parquet_info(self, data, start_frame, end_frame):
+        if isinstance(data, dict):
+            parquet_rel = data.get("data")
+            if start_frame is None:
+                start_frame = data.get("start_frame")
+            if end_frame is None:
+                end_frame = data.get("end_frame")
+        else:
+            parquet_rel = data
+        
+        if not parquet_rel:
+            raise KeyError("Missing parquet path in metadata 'data' field.")
+        
+        if os.path.isabs(parquet_rel):
+            parquet_path = parquet_rel
+        else:
+            parquet_path = os.path.join(self.base_path, parquet_rel)
+
+        start_frame = int(start_frame)
+        end_frame = int(end_frame)
+        return parquet_path, start_frame, end_frame
+
+    def _get_min_max(self):
+        if self._stat_min is not None and self._stat_max is not None:
+            return self._stat_min, self._stat_max
+        raise KeyError(f"Missing normalization stats for action type: {self.action_type}")
+
+    def _normalize_bound(
+        self,
+        data: np.ndarray,
+        data_min: np.ndarray,
+        data_max: np.ndarray,
+        clip_min: float = -1.0,
+        clip_max: float = 1.0,
+        eps: float = 1e-8,
+    ) -> np.ndarray:
+        ndata = 2 * (data - data_min) / (data_max - data_min + eps) - 1.0
+        return np.clip(ndata, clip_min, clip_max)
+
+    def _read_slice(self, parquet_path, column, start_frame, num_frames):
+        start = int(start_frame)
+        end = start + int(num_frames)
+        table = pq.read_table(parquet_path, columns=[column])
+        data = table.to_pydict()[column]
+        if end > len(data):
+            raise ValueError(
+                f"Not enough rows in {parquet_path} for slice "
+                f"start={start_frame}, num_frames={num_frames}"
+            )
+        return np.asarray(data[start:end], dtype=np.float32)
+
+    def get_num_frames(self, total_frames):
+        num_frames = int(self.num_frames)
+        if int(total_frames) < num_frames:
+            num_frames = int(total_frames)
+            while num_frames > 1 and num_frames % self.time_division_factor != self.time_division_remainder:
+                num_frames -= 1
+        return num_frames
+
+    def __call__(self, data: str, start_frame=None, end_frame=None):
+        parquet_path, start_frame, end_frame = self._resolve_parquet_info(
+            data, start_frame, end_frame
+        )
+        num_frames = self.get_num_frames(end_frame - start_frame + 1)
+        column = "observation.state" if self.use_absolute else "action"
+        arr = self._read_slice(parquet_path, column, start_frame, num_frames)
+        if arr.ndim != 2:
+            raise ValueError(f"Unexpected action shape {arr.shape} in {parquet_path}")
+        if arr.shape[1] == len(JOINT_AND_EEF_NAMES):
+            arr = arr[:, self.indices]
+        elif self.use_joint and arr.shape[1] == len(JOINT_NAMES):
+            pass
+        elif (not self.use_joint) and arr.shape[1] == len(EEF_NAMES):
+            pass
+        else:
+            raise ValueError(
+                f"Unexpected action width {arr.shape[1]} for action type {self.action_type} in {parquet_path}"
+            )
+        min_vals, max_vals = self._get_min_max()
+        arr = self._normalize_bound(arr, min_vals, max_vals)
+        return arr[None, ...]
 
 
