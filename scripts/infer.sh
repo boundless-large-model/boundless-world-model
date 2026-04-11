@@ -44,7 +44,7 @@ echo "  Dataset: ${DATASET_DIR}"
 echo "  Checkpoint: ${CKPT_PATH}"
 
 # Build command
-CMD="python scripts/infer_robot.py \
+CMD="python scripts/infer.py \
   --config ${CONFIG_FILE} \
   --model_paths ${MODEL_DIR} \
   --dataset_base_path ${DATASET_DIR} \
