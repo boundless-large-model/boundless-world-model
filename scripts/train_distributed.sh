@@ -23,7 +23,7 @@ GRAD_ACCUM_STEPS=2
 # Config Selection (Experiment-specific)
 # ===========================================
 
-CONFIG_FILE="configs/train_noise_base.yaml"
+CONFIG_FILE="configs/train/train_action_noise.yaml"
 
 # Optional: override output path from config
 OUTPUT_OVERRIDE=""  # Leave empty to use config value

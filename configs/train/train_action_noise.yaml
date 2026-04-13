@@ -1,5 +1,5 @@
-# Noise-mode with shorter frame length
-# For faster iteration or limited GPU memory
+# Base configuration for noise-mode action conditioning
+# Per-frame control via noise injection
 
 # ============================================================================
 # Dataset Configuration
@@ -18,7 +18,7 @@ video:
   height: 288
   width: 384
   max_pixels: 16777216
-  num_frames: 17
+  num_frames: 81
   resize_mode: "fit"
   num_history_frames: 1
 
@@ -31,7 +31,7 @@ model:
   extra_inputs: "input_image"
   fp8_models: null
   offload_models: null
-  model_config_path: "configs/wan2_1_fun_1_3b_inp.yaml"
+  model_config_path: "configs/model/wan2_1_fun_1_3b_inp.yaml"
   initialize_model_on_cpu: false
   text_mode: "emb"
   enable_dit: true
@@ -66,7 +66,7 @@ training:
 # Output Configuration
 # ============================================================================
 output:
-  output_path: "./outputs/noise_shortframe"
+  output_path: "./outputs/noise_base"
   remove_prefix_in_ckpt: "pipe.dit."
   save_steps: null
   ckpt_path: null
@@ -87,7 +87,7 @@ lora:
 # Gradient Configuration
 # ============================================================================
 gradient:
-  use_gradient_checkpointing: false
+  use_gradient_checkpointing: true
   use_gradient_checkpointing_offload: false
   gradient_accumulation_steps: 8
   max_grad_norm: 0.5

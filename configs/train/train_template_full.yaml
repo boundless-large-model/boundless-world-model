@@ -59,7 +59,7 @@ model:
   offload_models: null
 
   # [KEY] Path to model config YAML.
-  model_config_path: "configs/wan2_1_fun_1_3b_inp.yaml"
+  model_config_path: "configs/model/wan2_1_fun_1_3b_inp.yaml"
 
   # [OPTIONAL] Whether to initialize models on CPU.
   initialize_model_on_cpu: false
