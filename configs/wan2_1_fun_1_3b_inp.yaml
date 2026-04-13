@@ -1,0 +1,13 @@
+# Model version: alibaba-pai/Wan2.1-Fun-V1.1-1.3B-InP
+model_name: "Wan2.1-Fun-V1.1-1.3B-InP"
+
+# Exact weight file names for each module
+modules:
+  dit: "diffusion_pytorch_model.safetensors"
+  text: "models_t5_umt5-xxl-enc-bf16.pth"
+  vae: "Wan2.1_VAE.pth"
+  image: "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth"
+
+# Relative subdirectory for the tokenizers
+tokenizer_subdir: "google"
+clip_tokenizer_subdir: "xlm-roberta-large"

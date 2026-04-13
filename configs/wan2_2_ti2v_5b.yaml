@@ -1,0 +1,11 @@
+# Model version: Wan-AI/Wan2.2-TI2V-5B
+model_name: "Wan2.2-TI2V-5B"
+
+# Exact weight file names for each module
+modules:
+  dit: "diffusion_pytorch_model.safetensors.index.json"
+  text: "models_t5_umt5-xxl-enc-bf16.pth"
+  vae: "Wan2.2_VAE.pth"
+
+# Relative subdirectory for the tokenizers
+tokenizer_subdir: "google"
