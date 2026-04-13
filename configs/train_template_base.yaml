@@ -1,0 +1,127 @@
+# Training Configuration Template
+# Copy this file and modify values for your experiment
+
+# ============================================================================
+# Dataset Configuration
+# ============================================================================
+dataset:
+  # [REQUIRED] Base path of the dataset.
+  dataset_base_path: ""
+
+  # [OPTIONAL] Path to the metadata file of the dataset. 
+  dataset_metadata_path: null
+
+  # [TUNABLE] Number of times to repeat the dataset per epoch. 
+  dataset_repeat: 1
+
+  # [OPTIONAL] Number of workers for data loading.
+  dataset_num_workers: 0
+
+  # [OPTIONAL] Data file keys in the metadata. Comma-separated.
+  data_file_keys: "image,video"
+
+# ============================================================================
+# Video Configuration
+# ============================================================================
+video:
+  # [KEY] Height of images. Leave `height` and `width` empty to enable dynamic resolution.
+  height: null
+
+  # [KEY] Width of images. Leave `height` and `width` empty to enable dynamic resolution. 
+  width: null
+
+  # [OPTIONAL] Maximum number of pixels per frame, used for dynamic resolution. 
+  max_pixels: 1048576
+
+  # [KEY] Number of frames per video. Frames are sampled from the video prefix. 
+  num_frames: 81
+
+# ============================================================================
+# Model Configuration
+# ============================================================================
+model:
+  # [REQUIRED] Paths to load models. In JSON format.
+  model_paths: null
+
+  # [OPTIONAL] Model ID with origin paths, e.g., Wan-AI/Wan2.1-T2V-1.3B:diffusion_pytorch_model*.safetensors. Comma-separated.
+  model_id_with_origin_paths: null
+
+  # [OPTIONAL] Additional model inputs, comma-separated. 
+  extra_inputs: null
+
+  # [OPTIONAL] Models with FP8 precision, comma-separated.
+  fp8_models: null
+
+  # [OPTIONAL] Models with offload, comma-separated. Only used in splited training.
+  offload_models: null
+
+# ============================================================================
+# Training Configuration
+# ============================================================================
+training:
+  # [TUNABLE] Learning rate. 
+  learning_rate: 1e-4
+
+  # [TUNABLE] Number of epochs. 
+  num_epochs: 1
+
+  # [KEY] Models to train, e.g., dit, vae, text_encoder.
+  trainable_models: null
+
+  # [OPTIONAL] Whether to find unused parameters in DDP.
+  find_unused_parameters: false
+
+  # [TUNABLE] Weight decay.
+  weight_decay: 0.01
+
+  # [OPTIONAL] Task type.
+  task: "sft"
+
+# ============================================================================
+# Output Configuration
+# ============================================================================
+output:
+  # [KEY] Output save path.
+  output_path: "./models"
+
+  # [OPTIONAL] Remove prefix in ckpt. (default: "pipe.dit.")
+  remove_prefix_in_ckpt: "pipe.dit."
+
+  # [OPTIONAL] Number of checkpoint saving intervals. If None, checkpoints will be saved every epoch.
+  save_steps: null
+
+# ============================================================================
+# LoRA Configuration
+# ============================================================================
+lora:
+  # [OPTIONAL] Which model LoRA is added to.
+  lora_base_model: null
+
+  # [OPTIONAL] Which layers LoRA is added to.
+  lora_target_modules: "q,k,v,o,ffn.0,ffn.2"
+
+  # [TUNABLE] Rank of LoRA. 
+  lora_rank: 32
+
+  # [OPTIONAL] Path to the LoRA checkpoint. If provided, LoRA will be loaded from this checkpoint.
+  lora_checkpoint: null
+
+  # [OPTIONAL] Path to the preset LoRA checkpoint. If provided, this LoRA will be fused to the base model.
+  preset_lora_path: null
+
+  # [OPTIONAL] Which model the preset LoRA is fused to.
+  preset_lora_model: null
+
+# ============================================================================
+# Gradient Configuration
+# ============================================================================
+gradient:
+  # [KEY] Whether to use gradient checkpointing.
+  use_gradient_checkpointing: false
+
+  # [KEY] Whether to offload gradient checkpointing to CPU memory. 
+  use_gradient_checkpointing_offload: false
+
+  # [TUNABLE] Gradient accumulation steps. 
+  gradient_accumulation_steps: 1
+
