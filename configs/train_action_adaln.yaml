@@ -1,0 +1,114 @@
+# Base configuration for adaln-mode action conditioning
+# Global control via timestep embedding injection
+
+# ============================================================================
+# Dataset Configuration
+# ============================================================================
+dataset:
+  dataset_base_path: ""
+  dataset_metadata_path: null
+  dataset_repeat: 10
+  dataset_num_workers: 8
+  data_file_keys: "video"
+
+# ============================================================================
+# Video Configuration
+# ============================================================================
+video:
+  height: 288
+  width: 384
+  max_pixels: 16777216
+  num_frames: 81
+  resize_mode: "fit"
+  num_history_frames: 1
+
+# ============================================================================
+# Model Configuration
+# ============================================================================
+model:
+  model_paths: ""
+  model_id_with_origin_paths: null
+  extra_inputs: "input_image"
+  fp8_models: null
+  offload_models: null
+  model_config_path: "configs/wan2_1_fun_1_3b_inp.yaml"
+  initialize_model_on_cpu: false
+  text_mode: "emb"
+  enable_dit: true
+  enable_vae: true
+  enable_image: true
+  action_mode: "adaln"
+
+# ============================================================================
+# Action Configuration
+# ============================================================================
+action:
+  action_type: "eef_delta"
+  action_stat_path: null
+
+# ============================================================================
+# Training Configuration
+# ============================================================================
+training:
+  learning_rate: 5e-5
+  num_epochs: 10
+  trainable_models: "dit,action_encoder"
+  find_unused_parameters: false
+  weight_decay: 0.01
+  task: "sft"
+  seed: 42
+  mixed_precision: "bf16"
+  max_timestep_boundary: 1.0
+  min_timestep_boundary: 0.0
+  batch_size: 1
+
+# ============================================================================
+# Output Configuration
+# ============================================================================
+output:
+  output_path: "./outputs/adaln_base"
+  remove_prefix_in_ckpt: "pipe.dit."
+  save_steps: null
+  ckpt_path: null
+  resume_from: null
+
+# ============================================================================
+# LoRA Configuration
+# ============================================================================
+lora:
+  lora_base_model: null
+  lora_target_modules: null
+  lora_rank: 32
+  lora_checkpoint: null
+  preset_lora_path: null
+  preset_lora_model: null
+
+# ============================================================================
+# Gradient Configuration
+# ============================================================================
+gradient:
+  use_gradient_checkpointing: true
+  use_gradient_checkpointing_offload: false
+  gradient_accumulation_steps: 8
+  max_grad_norm: 0.5
+
+# ============================================================================
+# Tracking Configuration
+# ============================================================================
+tracking:
+  use_wandb: false
+  use_swanlab: false
+  swanlab_experiment_name: null
+
+# ============================================================================
+# Inference Configuration
+# ============================================================================
+infer:
+  cfg_scale: 5.0
+  num_inference_steps: 50
+  negative_prompt: "The video is not of a high quality, it has a low resolution. Watermark present in each frame. The background is solid. Strange body and strange trajectory. Distortion"
+  negative_prompt_emb: null
+  quality: 5
+  chunk_infer: true
+  fps: 24
+  enable_metrics: true
