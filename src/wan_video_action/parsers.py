@@ -4,6 +4,7 @@ import os
 import yaml
 
 def merge_yaml_and_args(yaml_path, parser, args):
+    # priority: CLI args > YAML config > parser defaults
     if not yaml_path or not os.path.exists(yaml_path):
         return args
 
@@ -23,56 +24,43 @@ def merge_yaml_and_args(yaml_path, parser, args):
 
 
 def prepare_runtime_config(args):
-    modules = []
+    cfg = {}
+    model_config_path = getattr(args, "model_config_path", "")
+    if model_config_path and os.path.exists(model_config_path):
+        with open(model_config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
 
-    if getattr(args, "enable_dit", True):
-        modules.append("dit")
-    if getattr(args, "enable_vae", True):
-        modules.append("vae")
-    if getattr(args, "enable_image", True):
-        modules.append("image")
-
+    enabled_mods = [m for m in ["dit", "vae", "image"] if getattr(args, f"enable_{m}", True)]
+    
     text_mode = getattr(args, "text_mode", "emb")
-    if text_mode == "t5":
-        modules.append("text")
-    else:
-        modules.append(f"text:{text_mode}")
-
+    enabled_mods.append("text" if text_mode == "t5" else f"text:{text_mode}")
+    
     action_mode = getattr(args, "action_mode", "none")
     if action_mode != "none":
-        modules.append(f"action:{action_mode}")
+        enabled_mods.append(f"action:{action_mode}")
 
-    module_bases = [m.split(":")[0] for m in modules]
-
-    model_paths = getattr(args, "model_paths", None)
-    yaml_modules_map = getattr(args, "modules", {}) 
-    paths_list = []
-
-    if model_paths and os.path.isdir(model_paths):
-        for base in module_bases:
-            if base in ["dit", "text", "vae", "image"]:
-                paths_list.append(os.path.join(model_paths, yaml_modules_map[base]))
-    elif model_paths:
-        if model_paths.startswith("["):
-            paths_list = json.loads(model_paths)
-        else:
-            paths_list = [model_paths]
+    model_paths = getattr(args, "model_paths", "")
+    yaml_modules_map = cfg.get("modules", {})
+    
+    paths_list = [
+        os.path.join(model_paths, yaml_modules_map[m.split(":")[0]])
+        for m in enabled_mods if m.split(":")[0] in yaml_modules_map
+    ]
 
     tokenizer_path = None
     if text_mode == "t5" and model_paths:
-        subdir = getattr(args, "tokenizer_subdir", "tokenizer")
+        subdir = getattr(args, "tokenizer_subdir", cfg.get("tokenizer_subdir", "tokenizer"))
         tokenizer_path = os.path.join(model_paths, subdir)
 
-    raw_keys = str(getattr(args, "data_file_keys", "image,video"))
-    data_file_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+    raw_keys = getattr(args, "data_file_keys", "image,video")
+    data_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
 
     return {
-        "modules": modules,
-        "module_bases": module_bases,
-        "action_enabled": "action" in module_bases,
+        "modules": enabled_mods,
         "model_paths_list": paths_list,
         "tokenizer_path": tokenizer_path,
-        "data_file_keys": data_file_keys,
+        "data_file_keys": data_keys,
+        "action_enabled": action_mode != "none"
     }
 
 
