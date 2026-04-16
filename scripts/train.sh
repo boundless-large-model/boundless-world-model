@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+export PYTHONPATH="${PWD}:${PYTHONPATH}"
+
 # ===========================================
 # Environment Configuration (Machine-specific)
 # ===========================================
