@@ -49,7 +49,7 @@ training:
   mixed_precision: "bf16"
 
 output:
-  output_path: "./outputs/robotwin_infer"
+  output_path: "./outputs/inference"
   ckpt_path: null
 
 # ============================================================================
