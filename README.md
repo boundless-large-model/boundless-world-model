@@ -52,7 +52,7 @@ conda create -n BWM python=3.10.20
 conda activate BWM
 
 # Install PyTorch with CUDA support
-pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu128
+pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
 
 # Install DiffSynth-Studio
 pip install diffsynth==2.0.11
@@ -61,9 +61,31 @@ pip install diffsynth==2.0.11
 pip install -r requirements.txt
 ```
 
-### Model Weights
+#### Model Weights
 
-Coming soon !
+Download the [Wan2.2-TI2V-5B](https://www.modelscope.cn/models/Wan-AI/Wan2.2-TI2V-5B) base model from [ModelScope](https://www.modelscope.cn):
+
+```bash
+modelscope download --model Wan-AI/Wan2.2-TI2V-5B --local_dir models/Wan2.2-TI2V-5B
+```
+
+BWM checkpoint: Coming soon !
+
+#### Run Inference
+
+The demo metadata, videos, actions, and normalization statistics are already included under `demo/`.
+
+Set local paths before running inference:
+
+```bash
+cp scripts/local.example.sh scripts/local.sh
+```
+
+Update `MODEL_PATHS` and `CKPT_PATH` in `scripts/local.sh`, then run:
+
+```bash
+bash scripts/infer_example.sh
+```
 
 ## 🏋️ Training
 

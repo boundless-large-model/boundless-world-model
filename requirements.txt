@@ -1,0 +1,16 @@
+# Recommended environment name: BWM.
+# Install with:
+#   pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+#   pip install diffsynth==2.0.11
+#   pip install -r requirements.txt
+
+# inference dependencies
+numpy==1.26.4
+omegaconf==2.3.0
+imageio==2.37.3
+imageio-ffmpeg==0.6.0
+pyarrow==23.0.1
+Pillow==12.1.1
+einops==0.8.2
+tqdm==4.67.3
+safetensors==0.7.0
