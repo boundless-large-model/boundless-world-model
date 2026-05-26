@@ -44,7 +44,7 @@ Coming soon !
 
 ## 🎬 Qualitative Results
 
-### [**CVPR 2026 WorldArena Challenge**](http://cvpr2026challenge.world-arena.ai/)
+### **CVPR 2026 WorldArena Challenge**
 
 > The following simulation scenes are generated autoregressively by **BWM** from initial frames and action sequences in the [**WorldArena test set**](https://github.com/tsinghua-fib-lab/WorldArena/), achieving high-fidelity visual realism while maintaining long-horizon physical consistency.
 
@@ -131,6 +131,30 @@ Coming soon !
   - ✅ Maintains long-horizon scene coherence
   - ✅ Handles occlusion without object drift
   - ✅ Produces stable constrained placement
+
+### **Out-of-Distribution Generalization**
+
+> To test generalization beyond benchmark initial states, we use **GPT-Image-2-created initial scenes** with original robot action sequences and let **BWM** autoregressively roll out the future under object appearance shifts.
+
+  <table align="center" >
+    <tr>
+      <td><img src="assets/out_of_distribution/episode100.gif" alt="ood episode100" width="260"></td>
+      <td><img src="assets/out_of_distribution/episode100-1.gif" alt="ood episode100 variant 1" width="260"></td>
+      <td><img src="assets/out_of_distribution/episode100-3.gif" alt="ood episode100 variant 3" width="260"></td>
+    </tr>
+    <tr>
+      <td><img src="assets/out_of_distribution/episode33.gif" alt="ood episode33" width="260"></td>
+      <td><img src="assets/out_of_distribution/episode33-1.gif" alt="ood episode33 variant 1" width="260"></td>
+      <td><img src="assets/out_of_distribution/episode33-5.gif" alt="ood episode33 variant 5" width="260"></td>
+    </tr>
+  </table>
+
+- **Task**: shake bottle, put object in cabinet
+- **Challenge**: Novel initial scenes and object appearance shifts
+- **Ours**:
+  - ✅ Generalizes to GPT-Image-2-created initial scenes
+  - ✅ Preserves action-conditioned dynamics
+  - ✅ Maintains coherent robot-object interaction
 
 ---
 
