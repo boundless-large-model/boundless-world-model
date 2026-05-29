@@ -3,7 +3,8 @@
 <h1>🌍 Boundless-World-Model </h1>
 
 <p align="center">
-    <a href="https://huggingface.co/spaces/W··orldArena/WorldArena"><img src="https://img.shields.io/badge/🏆_Leaderboard-WorldArena-yellow?style=flat"></a>  
+    <a href="https://huggingface.co/spaces/WorldArena/WorldArena"><img src="https://img.shields.io/badge/🏆_Leaderboard-WorldArena-yellow?style=flat"></a>  
+    <a href="https://huggingface.co/BLM-Lab/Boundless-World-Model"><img src="https://img.shields.io/badge/🤗_Model-BWM-blue?style=flat"></a>
 </p>
 
 </div>
