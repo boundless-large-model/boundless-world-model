@@ -314,4 +314,13 @@ Contributors are listed in alphabetical order by English name.
 
 If you find **BWM** is useful in your research or applications, please consider giving us a **star** 🌟.
 
+```bibtex
+@article{bwm2026,
+  author       = {{BWM Team}},
+  title        = {{BWM}: A Low-Cost High-Fidelity World Simulator for Robot Learning},
+  year         = {2026},
+  journal      = {arXiv preprint arXiv:2607.29302}
+}
+```
+
 ---
