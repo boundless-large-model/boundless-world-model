@@ -13,4 +13,7 @@ pyarrow==23.0.1
 Pillow==12.1.1
 einops==0.8.2
 tqdm==4.67.3
-safetensors==0.7.0
+# diffsynth 2.0.11 does not pin transformers, and transformers >=5.13 requires
+# safetensors>=0.8.0. An exact pin here is installed last and downgrades it, breaking
+# `import diffsynth`; a floor lets pip satisfy both constraints.
+safetensors>=0.8.0
