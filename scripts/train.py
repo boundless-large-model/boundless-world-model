@@ -42,7 +42,16 @@ class WanTrainingModule(DiffusionTrainingModule):
         # Load models
         model_configs = self.parse_model_configs(model_paths, model_id_with_origin_paths, fp8_models=fp8_models, offload_models=offload_models, device=device)
         tokenizer_config = ModelConfig(model_id="Wan-AI/Wan2.1-T2V-1.3B", origin_file_pattern="google/umt5-xxl/") if enable_text and tokenizer_path is None else (ModelConfig(tokenizer_path) if enable_text and tokenizer_path else None)
-        self.pipe = build_wan_video_action_pipeline(torch_dtype=torch.bfloat16, device=device, model_configs=model_configs, tokenizer_config=tokenizer_config, args=args)
+        self.pipe = build_wan_video_action_pipeline(
+            torch_dtype=torch.bfloat16,
+            device=device,
+            model_configs=model_configs,
+            tokenizer_config=tokenizer_config,
+            ckpt_path=ckpt_path,
+            action_dim=args.action_dim,
+            action_mode=args.action_mode,
+            text_enabled=enable_text,
+        )
         self.pipe = self.split_pipeline_units(task, self.pipe, trainable_models, lora_base_model)
 
         # Training mode
@@ -161,9 +170,19 @@ if __name__ == "__main__":
     if runtime_config["text_enabled"] and "prompt_emb" in runtime_config["data_file_keys"]:
         special_operator_map["prompt_emb"] = ResolvePromptEmbPath(base_path=args.dataset_base_path)
 
-    with open(args.action_stat_path, "r") as f:
-        stats = json.load(f)
-    stat = {args.action_type: stats[args.action_type]} if args.action_type in stats else stats
+    stat = None
+    if runtime_config["action_enabled"]:
+        if args.action_stat_path is None:
+            raise ValueError(
+                "--action_stat_path is required when action conditioning is enabled."
+            )
+        with open(args.action_stat_path, "r") as f:
+            stats = json.load(f)
+        stat = (
+            {args.action_type: stats[args.action_type]}
+            if args.action_type in stats
+            else stats
+        )
 
     dataset = UnifiedDataset(
         base_path=args.dataset_base_path,
@@ -185,13 +204,12 @@ if __name__ == "__main__":
         special_operator_map=special_operator_map,
     )
 
-    pack_paths(
-        dataset.data,
-        ("video", "start_frame", "end_frame"),
-        ("action", "start_frame", "end_frame"),
-    )
+    path_groups = [("video", "start_frame", "end_frame")]
+    if runtime_config["action_enabled"]:
+        path_groups.append(("action", "start_frame", "end_frame"))
+    pack_paths(dataset.data, *path_groups)
 
-    if "action" in runtime_config["data_file_keys"]:
+    if runtime_config["action_enabled"]:
         dataset.special_operator_map["action"] = LoadCobotAction(
             base_path=args.dataset_base_path,
             action_type=args.action_type,
@@ -205,7 +223,7 @@ if __name__ == "__main__":
         model_paths=json.dumps(runtime_config["model_paths_list"]),
         model_id_with_origin_paths=args.model_id_with_origin_paths,
         tokenizer_path=runtime_config["tokenizer_path"],
-        enable_text=args.enable_text,
+        enable_text=runtime_config["text_enabled"],
         trainable_models=args.trainable_models,
         lora_base_model=args.lora_base_model,
         lora_target_modules=args.lora_target_modules,

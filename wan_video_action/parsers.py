@@ -54,6 +54,8 @@ def prepare_runtime_config(args):
 
     raw_keys = getattr(args, "data_file_keys", "image,video")
     data_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+    if action_mode != "none" and "action" not in data_keys:
+        data_keys.append("action")
 
     return {
         "modules": enabled_mods,

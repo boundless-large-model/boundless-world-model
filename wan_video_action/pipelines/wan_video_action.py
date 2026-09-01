@@ -13,6 +13,19 @@ from ..models.wan_video_action_encoder import WanVideoActionEncoder
 from ..models.wan_video_vae import apply_wan_vae_compat
 
 
+ACTION_INJECTION_MODES = {"adaln", "noise", "none"}
+
+
+def _validate_action_injection_mode(action_injection_mode: str) -> str:
+    if action_injection_mode not in ACTION_INJECTION_MODES:
+        expected = ", ".join(sorted(ACTION_INJECTION_MODES))
+        raise ValueError(
+            f"Unsupported action injection mode '{action_injection_mode}'. "
+            f"Expected one of: {expected}."
+        )
+    return action_injection_mode
+
+
 def _prepare_history_condition_latents(
     self: WanVideoPipeline,
     inputs_shared: dict,
@@ -219,17 +232,19 @@ def load_checkpoint_weights(pipe, ckpt_path: str):
     dit = pipe.dit
     action_encoder = pipe.action_encoder
 
-    action_prefix = "pipe.action_encoder."
-    action_state = {
-        key[len(action_prefix):]: value
-        for key, value in state_dict.items()
-        if key.startswith(action_prefix)
-    }
-    dit_state = {
-        key: value
-        for key, value in state_dict.items()
-        if not key.startswith(action_prefix)
-    }
+    action_state = {}
+    dit_state = {}
+    for key, value in state_dict.items():
+        if key.startswith("pipe.action_encoder."):
+            action_state[key.removeprefix("pipe.action_encoder.")] = value
+        elif key.startswith("action_encoder."):
+            action_state[key.removeprefix("action_encoder.")] = value
+        elif key.startswith("pipe.dit."):
+            dit_state[key.removeprefix("pipe.dit.")] = value
+        elif key.startswith("dit."):
+            dit_state[key.removeprefix("dit.")] = value
+        else:
+            dit_state[key] = value
 
     dit_result = dit.load_state_dict(dit_state, strict=False)
     print(
@@ -237,11 +252,19 @@ def load_checkpoint_weights(pipe, ckpt_path: str):
         f"(missing={len(dit_result.missing_keys)}, unexpected={len(dit_result.unexpected_keys)})"
     )
 
-    action_result = action_encoder.load_state_dict(action_state, strict=False)
-    print(
-        f"  - Loaded action_encoder keys: {len(action_state)} "
-        f"(missing={len(action_result.missing_keys)}, unexpected={len(action_result.unexpected_keys)})"
-    )
+    if action_encoder is not None:
+        # A DiT-only checkpoint is a valid partial override, but once action
+        # weights are present they must completely match the active encoder
+        # architecture. Otherwise a legacy checkpoint can silently leave a
+        # TI2V encoder (or vice versa) randomly initialized.
+        action_result = action_encoder.load_state_dict(
+            action_state,
+            strict=bool(action_state),
+        )
+        print(
+            f"  - Loaded action_encoder keys: {len(action_state)} "
+            f"(missing={len(action_result.missing_keys)}, unexpected={len(action_result.unexpected_keys)})"
+        )
 
 
 def build_wan_video_action_pipeline(
@@ -254,7 +277,9 @@ def build_wan_video_action_pipeline(
     ckpt_path: Optional[str] = None,
     action_dim: int = 14,
     action_mode: str = "adaln",
+    text_enabled: bool = True,
 ):
+    action_mode = _validate_action_injection_mode(action_mode)
     pipe = WanVideoPipeline.from_pretrained(
         torch_dtype=torch_dtype,
         device=device,
@@ -264,23 +289,52 @@ def build_wan_video_action_pipeline(
         vram_limit=vram_limit,
     )
     apply_wan_vae_compat(pipe.vae)
-
-    configure_ti2v_text_off_dit(pipe.dit)
-
-    pipe.action_encoder = WanVideoActionEncoder(
-        action_dim=int(action_dim),
-        dim=pipe.dit.dim,
-        num_action_per_chunk=81,
+    ti2v2_action_conditioning = bool(
+        getattr(pipe.dit, "seperated_timestep", False)
+        and getattr(pipe.dit, "fuse_vae_embedding_in_latents", False)
     )
-    pipe.action_encoder = pipe.action_encoder.to(dtype=pipe.torch_dtype, device=pipe.device)
-    pipe.action_encoder.eval()
+    if ti2v2_action_conditioning and action_mode != "adaln":
+        raise ValueError(
+            "Wan2.2 TI2V action conditioning currently supports only "
+            "action_mode='adaln'. Noise and action-free modes require a "
+            "text or image cross-attention context."
+        )
+
+    if ti2v2_action_conditioning:
+        configure_ti2v_text_off_dit(pipe.dit)
+
+    pipe.action_encoder = None
+    if action_mode != "none":
+        pipe.action_encoder = WanVideoActionEncoder(
+            action_dim=int(action_dim),
+            dim=pipe.dit.dim,
+            num_action_per_chunk=81 if action_mode == "adaln" else None,
+            ti2v2=ti2v2_action_conditioning,
+        )
+        pipe.action_encoder = pipe.action_encoder.to(
+            dtype=pipe.torch_dtype,
+            device=pipe.device,
+        )
+        pipe.action_encoder.eval()
 
     if ckpt_path is not None:
         load_checkpoint_weights(pipe, ckpt_path)
 
-    pipe.units = _build_wan2_action_units(pipe)
+    if ti2v2_action_conditioning:
+        pipe.units = _build_wan2_action_units(pipe)
+        _install_wan_video_action_call(pipe)
+    else:
+        if not text_enabled:
+            pipe.units = [
+                unit
+                for unit in pipe.units
+                if unit.__class__.__name__ != "WanVideoUnit_PromptEmbedder"
+            ]
+        if action_mode != "none":
+            pipe.units.append(WanVideoUnit_ActionEmbedder())
+
     pipe.action_injection_mode = action_mode
-    _install_wan_video_action_call(pipe)
+    pipe.ti2v2_action_conditioning = ti2v2_action_conditioning
 
     pipe.model_fn = model_fn_wan_video_action
     return pipe
@@ -290,17 +344,41 @@ class WanVideoUnit_ActionEmbedder(PipelineUnit):
     def __init__(self):
         super().__init__(
             input_params=("action", "num_frames"),
-            output_params=("action_emb", "action_mod_emb"),
+            output_params=(
+                "action_emb",
+                "action_mod_emb",
+                "action_injection_mode",
+                "ti2v2_action_conditioning",
+            ),
             onload_model_names=("action_encoder",)
         )
 
     def process(self, pipe, action=None, num_frames=None):
+        action_injection_mode = _validate_action_injection_mode(
+            getattr(pipe, "action_injection_mode", "none")
+        )
+        ti2v2_action_conditioning = bool(
+            getattr(pipe, "ti2v2_action_conditioning", False)
+        )
+        if action_injection_mode == "none":
+            return {
+                "action_injection_mode": action_injection_mode,
+                "ti2v2_action_conditioning": ti2v2_action_conditioning,
+            }
         if action is None:
-            return {}
+            raise ValueError(
+                "`action` is required when action injection mode is "
+                f"'{action_injection_mode}'."
+            )
         if pipe.action_encoder is None:
             raise ValueError("Action encoder is not available in the pipeline.")
-        if any(param.device != pipe.device for param in pipe.action_encoder.parameters()):
-            pipe.action_encoder = pipe.action_encoder.to(device=pipe.device, dtype=pipe.torch_dtype)
+        if any(
+            param.device != pipe.device for param in pipe.action_encoder.parameters()
+        ):
+            pipe.action_encoder = pipe.action_encoder.to(
+                device=pipe.device,
+                dtype=pipe.torch_dtype,
+            )
 
         pipe.load_models_to_device(self.onload_model_names)
         action = torch.as_tensor(action, device=pipe.device, dtype=pipe.torch_dtype)
@@ -315,8 +393,45 @@ class WanVideoUnit_ActionEmbedder(PipelineUnit):
                 f"Action sequence too short for latent groups: action_frames={current_action_frames}, "
                 f"required={target_action_frames}, target_groups={target_groups}"
             )
+
+        if action_injection_mode == "noise":
+            grouped_action = torch.cat(
+                [action[:, 0:1].repeat(1, 4, 1), action[:, 1:]],
+                dim=1,
+            )
+            grouped_action = grouped_action.reshape(
+                action.shape[0], target_groups, 4, action.shape[-1]
+            ).mean(dim=2)
+            action_emb = pipe.action_encoder(grouped_action)
+            return {
+                "action_emb": action_emb,
+                "action_injection_mode": action_injection_mode,
+                "ti2v2_action_conditioning": ti2v2_action_conditioning,
+            }
+
+        if not ti2v2_action_conditioning:
+            expected_frames = pipe.action_encoder.num_action_per_chunk
+            if target_action_frames != expected_frames:
+                raise ValueError(
+                    "Legacy adaln action length mismatch: "
+                    f"got {target_action_frames}, expected {expected_frames}."
+                )
+            action_emb = pipe.action_encoder(
+                rearrange(action, "b f d -> b (f d)").contiguous()
+            )
+            return {
+                "action_emb": action_emb,
+                "action_injection_mode": action_injection_mode,
+                "ti2v2_action_conditioning": ti2v2_action_conditioning,
+            }
+
         action_emb, action_mod_emb = pipe.action_encoder.encode_ti2v2(action)
-        return {"action_emb": action_emb, "action_mod_emb": action_mod_emb}
+        return {
+            "action_emb": action_emb,
+            "action_mod_emb": action_mod_emb,
+            "action_injection_mode": action_injection_mode,
+            "ti2v2_action_conditioning": ti2v2_action_conditioning,
+        }
 
 
 class WanVideoUnit_InputVideoEmbedder(PipelineUnit):
@@ -386,6 +501,7 @@ def model_fn_wan_video_action(
     action_emb: Optional[torch.Tensor] = None,
     action_mod_emb: Optional[torch.Tensor] = None,
     action_injection_mode: str = "none",
+    ti2v2_action_conditioning: bool = False,
     clip_feature: Optional[torch.Tensor] = None,
     y: Optional[torch.Tensor] = None,
     fuse_vae_embedding_in_latents: bool = False,
@@ -394,6 +510,7 @@ def model_fn_wan_video_action(
     use_gradient_checkpointing_offload: bool = False,
     **kwargs,
 ):
+    action_injection_mode = _validate_action_injection_mode(action_injection_mode)
     if dit.seperated_timestep and fuse_vae_embedding_in_latents:
         condition_t = 1 if fused_condition_latent_frames is None else int(fused_condition_latent_frames)
         condition_t = max(0, min(condition_t, latents.shape[2]))
@@ -420,21 +537,39 @@ def model_fn_wan_video_action(
     elif not use_text_embedding:
         context = None
 
-    if action_emb is None or action_mod_emb is None:
-        raise ValueError("`action:adaln` requires both `action_emb` and `action_mod_emb`.")
-    if context is None:
-        context = action_emb
-    else:
-        context = torch.cat([context, action_emb], dim=1)
-    text_token_count = context.shape[1]
-    if t.shape[1] % action_mod_emb.shape[1] != 0:
-        raise RuntimeError(
-            f"Temporal group mismatch: t.shape={tuple(t.shape)}, action_mod_emb.shape={tuple(action_mod_emb.shape)}. "
-            "Expected t.shape[1] to be divisible by action_mod_emb.shape[1]."
-        )
-    num_spatial_tokens = t.shape[1] // action_mod_emb.shape[1]
-    action_mod_emb = action_mod_emb.unsqueeze(2).repeat(1, 1, num_spatial_tokens, 1).flatten(1, 2)
-    t = t + action_mod_emb
+    if action_injection_mode == "adaln":
+        if action_emb is None:
+            raise ValueError("`action:adaln` requires `action_emb`.")
+        if ti2v2_action_conditioning:
+            if action_mod_emb is None:
+                raise ValueError("TI2V `action:adaln` requires `action_mod_emb`.")
+            if context is None:
+                context = action_emb
+            else:
+                context = torch.cat([context, action_emb], dim=1)
+            text_token_count = context.shape[1]
+            if t.shape[1] % action_mod_emb.shape[1] != 0:
+                raise RuntimeError(
+                    f"Temporal group mismatch: t.shape={tuple(t.shape)}, "
+                    f"action_mod_emb.shape={tuple(action_mod_emb.shape)}. "
+                    "Expected t.shape[1] to be divisible by "
+                    "action_mod_emb.shape[1]."
+                )
+            num_spatial_tokens = t.shape[1] // action_mod_emb.shape[1]
+            action_mod_emb = action_mod_emb.unsqueeze(2).repeat(
+                1, 1, num_spatial_tokens, 1
+            ).flatten(1, 2)
+            t = t + action_mod_emb
+        else:
+            if action_emb.ndim != 2 or tuple(action_emb.shape) != tuple(t.shape):
+                raise ValueError(
+                    "Legacy `action:adaln` expects action_emb to match the "
+                    f"timestep embedding, got {tuple(action_emb.shape)} and "
+                    f"{tuple(t.shape)}."
+                )
+            t = t + action_emb
+    elif action_injection_mode == "noise" and action_emb is None:
+        raise ValueError("`action:noise` requires `action_emb`.")
 
     if t.ndim == 3:
         t_mod = dit.time_projection(t).unflatten(2, (6, dit.dim))
@@ -453,8 +588,28 @@ def model_fn_wan_video_action(
         else:
             context = torch.cat([clip_embdding, context], dim=1)
 
+    if context is None and len(dit.blocks) > 0:
+        raise ValueError(
+            "Wan DiT cross-attention requires a text, image, or TI2V action context."
+        )
+
     x = dit.patchify(x)
     f, h, w = x.shape[2:]
+
+    if action_injection_mode == "noise":
+        if action_emb.ndim != 3:
+            raise ValueError(
+                "`action:noise` expects action_emb with shape (B, F, D), "
+                f"got {tuple(action_emb.shape)}."
+            )
+        expected_shape = (x.shape[0], f, x.shape[1])
+        if tuple(action_emb.shape) != expected_shape:
+            raise ValueError(
+                "`action:noise` temporal embedding mismatch: "
+                f"got {tuple(action_emb.shape)}, "
+                f"expected {expected_shape} to match patchified video tokens."
+            )
+        x = x + rearrange(action_emb, "b f d -> b d f 1 1")
 
     x = rearrange(x, 'b c f h w -> b (f h w) c').contiguous()
 
