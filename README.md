@@ -5,6 +5,7 @@
 <p align="center">
     <a href="https://huggingface.co/spaces/WorldArena/WorldArena"><img src="https://img.shields.io/badge/🏆_Leaderboard-WorldArena-yellow?style=flat"></a>  
     <a href="https://huggingface.co/BLM-Lab/Boundless-World-Model"><img src="https://img.shields.io/badge/🤗_Model-BWM-blue?style=flat"></a>
+    <a href="https://arxiv.org/abs/2607.29302"><img src="https://img.shields.io/badge/arXiv-2607.29302-b31b1b?style=flat"></a>
 </p>
 
 </div>
@@ -13,6 +14,7 @@
 
 ## 🗞️ News
 
+- **[2026-07]** 📄 **Technical report released!** Read the BWM technical report on [arXiv](https://arxiv.org/abs/2607.29302).
 - **[2026-05]** 🏆 **Top results on WorldArena Leaderboard!** BLM ranks 1st among open-source models on Track 1 and Track 2 Data Engine, while BWM-fast ranks 2nd overall on Track 1.
 - **[2026-05]** 🚀 **Inference code released!** Generate action-conditioned robot manipulation videos with BWM. See [🛠️ Usage](#️-usage).
 - **[2026-05]** 🎉 **Model definition released!** The BWM architecture and core model components are now available.
@@ -65,13 +67,23 @@ Leaderboard: https://huggingface.co/spaces/WorldArena/WorldArena
 - [x] Release model definition
 - [x] Release model weights
 - [ ] Release training code
-- [ ] Release technical report
+- [x] Release technical report
 
 ---
 
 ## 🏗️ Framework
 
-Coming soon !
+1. Overview of BWM. BWM combines action-aligned data construction, action-conditioned world simulation, and downstream robot-learning applications.
+
+<p align="center">
+  <img src="assets/images/teaser.png" alt="Overview of BWM" width="800">
+</p>
+
+2. Overview of BWM framework. BWM autoregressively predicts future observation chunks from the initial observation, dynamic history, and action chunk. Robot actions enter the video diffusion backbone as cross-attention tokens and action-conditioned timestep embeddings.
+
+<p align="center">
+  <img src="assets/images/framework.png" alt="Overview of BWM framework" width="800">
+</p>
 
 ---
 
@@ -286,7 +298,7 @@ We further thank all project contributors for their valuable discussions, suppor
 - **Infrastructure**:
   - **Distributed Evaluation**: Wenhao Liu
   - **Real-World Setup**: Zhe Li
-- **Discussion Support**: Fengling Li, Pengfei Zhang, Lanyun Zhu, Ying Cheng, Jingkuan Song, Xing Xu, Yunfan Ren, Qi Zhang
+- **Discussion Support**: Fengling Li, Pengfei Zhang
 
 ---
 
@@ -294,12 +306,21 @@ We further thank all project contributors for their valuable discussions, suppor
 
 Contributors are listed in alphabetical order by English name.
 
-[Baixu Ji](mailto:baixuji@tongji.edu.cn), [Bowen Wang](mailto:wbw1090809192@gmail.com), [Chen Xu](mailto:1187092474@qq.com), [Chenming Li](mailto:2252661@tongji.edu.cn), [Chenyu Liu](mailto:2431993@tongji.edu.cn), [Enci Xie](mailto:elect@tongji.edu.cn), [Fengling Li](mailto:fenglingli2023@gmail.com), [Hao Xue](mailto:2534205@tongji.edu.cn), [Heng Tao Shen](mailto:shenhengtao@tongji.edu.cn), [Heng Zhi](mailto:2431992@tongji.edu.cn), [Jingkuan Song](mailto:jingkuan.song@gmail.com), [Lanyun Zhu](mailto:zhulanyun1999@gmail.com), [Lei Zhu](mailto:leizhu0608@gmail.com), [Pengfei Zhang](mailto:mima.zpf@gmail.com), [Qi Zhang](mailto:zhangqi_cs@tongji.edu.cn), [Tianshi Wang](mailto:tswang0116@163.com), [Wenhao Liu](mailto:liuwwhh594@gmail.com), [Wenjie Yang](mailto:blankyang@tongji.edu.cn), [Wentao Tan](mailto:tan.wt.lucky@gmail.com), [Xing Xu](mailto:interxuxing@hotmail.com), [Xuebin Fang](mailto:xuebinfang@163.com), [Yang Sun](mailto:young7869264s@gmail.com), [Ying Cheng](mailto:yingcheng@tongji.edu.cn), [Yipeng Chen](mailto:2431994@tongji.edu.cn), [Yunfan Ren](mailto:yunfan@tongji.edu.cn), [Zengrong Lin](mailto:zengronglin@tongji.edu.cn), [Zequn Wang](mailto:wangzequn369@gmail.com), [Zhe Li](mailto:zheli25@tongji.edu.cn)
+[Baixu Ji](mailto:baixuji@tongji.edu.cn), [Bowen Wang](mailto:wbw1090809192@gmail.com), [Chen Xu](mailto:1187092474@qq.com), [Chenming Li](mailto:2252661@tongji.edu.cn), [Chenyu Liu](mailto:2431993@tongji.edu.cn), [Enci Xie](mailto:elect@tongji.edu.cn), [Fengling Li](mailto:fenglingli2023@gmail.com), [Hao Xue](mailto:2534205@tongji.edu.cn), [Heng Tao Shen](mailto:shenhengtao@tongji.edu.cn), [Heng Zhi](mailto:2431992@tongji.edu.cn), [Lei Zhu](mailto:leizhu0608@gmail.com), [Pengfei Zhang](mailto:mima.zpf@gmail.com), [Tianshi Wang](mailto:tswang0116@163.com), [Wenhao Liu](mailto:liuwwhh594@gmail.com), [Wenjie Yang](mailto:blankyang@tongji.edu.cn), [Wentao Tan](mailto:tan.wt.lucky@gmail.com), [Xuebin Fang](mailto:xuebinfang@163.com), [Yang Sun](mailto:young7869264s@gmail.com), [Yipeng Chen](mailto:2431994@tongji.edu.cn), [Zengrong Lin](mailto:zengronglin@tongji.edu.cn), [Zequn Wang](mailto:wangzequn369@gmail.com), [Zhe Li](mailto:zheli25@tongji.edu.cn)
 
 ---
 
 ## 📜 Citing
 
 If you find **BWM** is useful in your research or applications, please consider giving us a **star** 🌟.
+
+```bibtex
+@article{bwm2026,
+  author       = {{BWM Team}},
+  title        = {{BWM}: A Low-Cost High-Fidelity World Simulator for Robot Learning},
+  year         = {2026},
+  journal      = {arXiv preprint arXiv:2607.29302}
+}
+```
 
 ---
