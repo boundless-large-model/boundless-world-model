@@ -456,18 +456,13 @@ class WanVideoUnit_ImageEmbedderFused(PipelineUnit):
         history_t: int,
     ):
         if not (
-            pipe.action_injection_mode == "adaln"
+            pipe.scheduler.training
+            and pipe.action_injection_mode == "adaln"
             and history_t > 1
         ):
             return history_condition_latents
 
-        if pipe.scheduler.training:
-            training_sigmas = pipe.scheduler.sigmas
-        else:
-            training_sigmas, _ = pipe.scheduler.set_timesteps_fn(
-                num_inference_steps=1000,
-                denoising_strength=1.0,
-            )
+        training_sigmas = pipe.scheduler.sigmas
         small_sigma_idx = max(0, len(training_sigmas) - 50)
         small_sigma = training_sigmas[small_sigma_idx]
         history_condition_latents[:, :, 1:history_t] = (
